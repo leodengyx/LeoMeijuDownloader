@@ -6,7 +6,7 @@ import urllib
 import urllib2
 from cookielib import CookieJar
 import re
-import time
+import youtube_dl
 
 from collector import Collector
 from meiju import Episode
@@ -27,12 +27,43 @@ class Downloader:
                   "Submit": "%E7%99%BB%E5%85%A5"}
         data = urllib.urlencode(values)
         response = opener.open(episode_url, data)
+        soup = BeautifulSoup(response.read().replace("\n",""), "html.parser")
 
-        soup = BeautifulSoup(response.read(), "html.parser")
-        iframe_tag_list = soup.find_all("iframe")
-        print iframe_tag_list
+        # First we lookup videomega first
+        iframe_tag_list = soup.find_all("iframe", src=re.compile("videomega"))
         for iframe_tag in iframe_tag_list:
+            urlstr = iframe_tag["src"][:iframe_tag["src"].find("&")]
+            #argv = ["-v", urlstr]
+            #youtube_dl.main(argv)
+            request = urllib2.Request(urlstr)
+            request.add_header("Referer",
+                               episode_url)
+            request.add_header("User-Agent",
+                               "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36")
+            cookiejar = CookieJar()
+            opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cookiejar))
+            iframe_response = opener.open(request)
+            print iframe_response.read()
 
+            '''
+            iframe_soup = BeautifulSoup(iframe_response.read(), "html.parser")
+            source_tag = iframe_soup.find("source")
+            video_url = source_tag["src"]
+            print video_url
+
+            # Get real video content
+            request = urllib2.Request(video_url)
+            request.add_header("Referer",
+                                   iframe_tag["src"])
+            request.add_header("User-Agent",
+                               "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36")
+            video_response = opener.open(request)
+            meta = video_response.info()
+            file_size = int(meta.getheaders("Content-Length")[0])
+            print "file size: %d" % file_size
+            '''
+
+            '''
             is_continue = True
             retry_count = 0
             while is_continue == True and retry_count < 10:
@@ -83,6 +114,7 @@ class Downloader:
                     print status,
 
                 f.close()
+                '''
 
 
 
@@ -94,13 +126,10 @@ class Downloader:
         pass
 
 if __name__ == "__main__":
-    #collector = Collector()
-    #collector.save_all_meiju_info()
-
     episode_inst = Episode()
     episode_inst.season_id = 5
     episode_inst.episode_id = 14
-    episode_inst.url = "http://www.lm-us.com/%e7%a0%b4%e7%94%a2%e5%a7%90%e5%a6%b9-%e7%ac%ac5%e5%ad%a3%e7%ac%ac14%e9%9b%86-2-broke-girls-s5ep14-%e7%be%8e%e5%8a%87%e7%b7%9a%e4%b8%8a%e7%9c%8b/"
+    episode_inst.url = "http://www.lm-us.com/%e7%a0%b4%e7%94%a2%e5%a7%90%e5%a6%b9-%e7%ac%ac5%e5%ad%a3%e7%ac%ac14%e9%9b%86-2-broke-girls-s5ep14-%e7%be%8e%e5%8a%87%e7%b7%9a%e4%b8%8a%e7%9c%8b"
 
     downloader = Downloader()
     downloader.download_meiju_episode(episode_inst, None)
