@@ -4,6 +4,7 @@ import urllib2
 import cookielib
 import re
 import json
+import os
 
 from meiju import Meiju
 from meiju import Season
@@ -27,6 +28,7 @@ class Collector:
         self.init_url = "http://www.lm-us.com/"
         self.all_meiju_file_name = "All_Meiju.js"
         self.meiju_inst_list = []
+        self.meiju_ename_inst_dict = {}
 
     def save_all_meiju_info(self):
         logger.info("save_all_meiju_info() function entry")
@@ -39,6 +41,7 @@ class Collector:
         for a_tag in a_tag_list:
             meiju_inst = self.save_meiju_info(unicode(a_tag.string), a_tag['href'])
             self.meiju_inst_list.append(meiju_inst)
+            self.meiju_ename_inst_dict[meiju_inst.english_name] = meiju_inst
 
     def save_meiju_info(self, mix_name, meiju_url):
         logger.info("save_meiju_info() function entry. mix_name: %s, meiju_url: %s" % (mix_name, meiju_url))
@@ -87,8 +90,38 @@ class Collector:
 
     def read_all_meiju_info_from_file(self):
         file_hdlr = open(self.all_meiju_file_name, 'r')
-        self.meiju_inst_list = json.load(file_hdlr)
+        meiju_dict_list = json.load(file_hdlr)
+
+        self.meiju_inst_list = []
+        self.meiju_ename_inst_dict = {}
+        for meiju_dict_inst in meiju_dict_list:
+            meiju_inst = Meiju()
+            meiju_inst.mix_name = meiju_dict_inst["mix_name"]
+            meiju_inst.english_name = meiju_dict_inst["english_name"]
+            meiju_inst.chinese_name = meiju_dict_inst["chinese_name"]
+            meiju_inst.season_count = meiju_dict_inst["season_count"]
+            meiju_inst.url = meiju_dict_inst["url"]
+            meiju_inst.season_id_inst_dict = {}
+            for (season_id, season_dict_inst) in meiju_dict_inst["season_id_inst_dict"].items():
+                season_inst = Season()
+                season_inst.season_id = season_dict_inst["season_id"]
+                season_inst.episode_count = season_dict_inst["episode_count"]
+                season_inst.episode_id_inst_dict = {}
+                for (episode_id, episode_dict_inst) in season_dict_inst["episode_id_inst_dict"].items():
+                    episode_inst = Episode()
+                    episode_inst.season_id = episode_dict_inst["season_id"]
+                    episode_inst.episode_id = episode_dict_inst["episode_id"]
+                    episode_inst.url = episode_dict_inst["url"]
+                    season_inst.episode_id_inst_dict[episode_inst.episode_id] = episode_inst
+                meiju_inst.season_id_inst_dict[season_inst.season_id] = season_inst
+            self.meiju_inst_list.append(meiju_inst)
+            self.meiju_ename_inst_dict[meiju_inst.english_name] = meiju_inst
         file_hdlr.close()
+
+    def is_meiju_info_file_exist(self):
+        if os.path.exists(self.all_meiju_file_name):
+            return True
+        return False
 
 if __name__ == "__main__":
     collector = Collector()
