@@ -8,7 +8,6 @@ from cookielib import CookieJar
 import re
 import youtube_dl
 import os
-import threading
 
 from collector import Collector
 from meiju import Episode
@@ -17,23 +16,16 @@ import logger
 
 logger = logger.get_logger(__name__)
 
-'''
-def thread_func(downloader, episode_inst, season_dir_path):
-    logger.debug("Thread %s starting." % threading.currentThread().getName())
-    downloader.download_meiju_episode(episode_inst, season_dir_path)
-    logger.debug("Thread %s end." % threading.currentThread().getName())
-'''
-
 class Downloader:
 
     def __init__(self):
         pass
 
-    def download_meiju_episode(self, episode_inst, save_folder_path):
+    def download_meiju_episode(self, collector, meiju_ename, season_id, episode_id, save_folder_path):
 
-        # Check whether episode instance invalid
-        if episode_inst is None:
-            logger.error("Episode instance is None")
+        # Check whether collector instance invalid
+        if collector is None:
+            logger.error("Collector instance is None")
             return
 
         # Check whether invalid input parameter
@@ -46,44 +38,72 @@ class Downloader:
             os.makedirs(save_folder_path)
             logger.debug("Create directory %s" % save_folder_path)
 
+        # Check whether dir contains the Meiju folder
+        if not save_folder_path.find(meiju_ename.replace(" ", "_")):
+            save_folder_path = os.path.join(save_folder_path, meiju_ename.replace(" ", "_"))
+            os.makedirs(save_folder_path)
+
+        # Check whether dir contains Season folder
+        if not save_folder_path.find("Season"+str(season_id)):
+            save_folder_path = os.path.join(save_folder_path, "Season"+str(season_id))
+            os.makedirs(save_folder_path)
+
         # Check whether download file already exists
-        output_file_name = "Season" + str(episode_inst.season_id) + "Ep" + str(episode_inst.episode_id) + ".mp4"
+        output_file_name = "Season" + str(season_id) + "Ep" + str(episode_id) + ".mp4"
         output_file_path = os.path.join(os.path.abspath(save_folder_path), output_file_name)
         if os.path.exists(output_file_path):
             logger.debug("File %s already exists, no need to download" % output_file_path)
             return
 
-        episode_url = episode_inst.url
-        cookiejar = CookieJar()
-        opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cookiejar))
-        values = {"log": "us02",
-                  "pwd": "0000",
-                  "redirect_to": episode_url,
-                  "a": "login",
-                  "Submit": "%E7%99%BB%E5%85%A5"}
-        data = urllib.urlencode(values)
-        response = opener.open(episode_url, data)
-        soup = BeautifulSoup(response.read().replace("\n",""), "html.parser")
+        # Get episode instace
+        if meiju_ename in collector.meiju_ename_inst_dict:
+            meiju_inst = collector.meiju_ename_inst_dict[meiju_ename]
+            if season_id in meiju_inst.season_id_inst_dict:
+                season_inst = meiju_inst.season_id_inst_dict[season_id]
+                if episode_id in season_inst.episode_id_inst_dict:
+                    episode_inst = season_inst.episode_id_inst_dict[episode_id]
 
-        # First we lookup videomega first
-        iframe_tag_list = soup.find_all("iframe", src=re.compile("videomega"))
-        for iframe_tag in iframe_tag_list:
-            urlstr = iframe_tag["src"][:iframe_tag["src"].find("&")]
-            logger.debug("Videomega URL: %s" % urlstr)
-            logger.debug("Save to file %s" % output_file_path)
+                    episode_url = episode_inst.url
+                    cookiejar = CookieJar()
+                    opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cookiejar))
+                    values = {"log": "us02",
+                              "pwd": "0000",
+                              "redirect_to": episode_url,
+                              "a": "login",
+                              "Submit": "%E7%99%BB%E5%85%A5"}
+                    data = urllib.urlencode(values)
+                    response = opener.open(episode_url, data)
+                    soup = BeautifulSoup(response.read().replace("\n",""), "html.parser")
 
-            # Use youtube-dl to download the video
-            argv = ["-o", unicode(output_file_path), urlstr]
-            try:
-                youtube_dl.main(argv)
-            except:
-                logger.error("Error downloading the video")
+                    # First we lookup videomega first
+                    iframe_tag_list = soup.find_all("iframe", src=re.compile("videomega"))
+                    for iframe_tag in iframe_tag_list:
+                        urlstr = iframe_tag["src"][:iframe_tag["src"].find("&")]
+                        logger.debug("Videomega URL: %s" % urlstr)
+                        logger.debug("Save to file %s" % output_file_path)
 
-    def download_meiju_season(self, season_inst, save_folder_path):
+                        # Use youtube-dl to download the video
+                        argv = ["-o", unicode(output_file_path), urlstr]
+                        try:
+                            youtube_dl.main(argv)
+                        except:
+                            logger.error("Error downloading the video")
 
-        # Check whether season instance is None
-        if season_inst is None:
-            logger.error("Season Instance is None")
+                else:
+                    logger.error("Failed to lookup Episode instance with Episode Id %d" % episode_id)
+                    return
+            else:
+                logger.error("Failed to lookup Season instance with Season Id %d" % season_id)
+                return
+        else:
+            logger.error("Failed to lookup Meiju with English name %s" % meiju_ename)
+            return
+
+    def download_meiju_season(self, collector, meiju_ename, season_id, save_folder_path):
+
+        # Check whether collector is None
+        if collector is None:
+            logger.error("Collector instance is None")
             return
 
         # Check whether save folder path is invalid
@@ -96,34 +116,40 @@ class Downloader:
             os.makedirs(save_folder_path)
             logger.debug("Create directory %s" % save_folder_path)
 
-        # Check whether need to create Season folder
-        season_dir_name = "Season" + str(season_inst.season_id)
-        season_dir_path = os.path.join(save_folder_path, season_dir_name)
-        if not os.path.exists(season_dir_path):
-            os.makedirs(season_dir_path)
-            logger.debug("Create directory %s for season" % season_dir_path)
+        # Check whether dir contains the Meiju folder
+        if not save_folder_path.find(meiju_ename.replace(" ", "_")):
+            save_folder_path = os.path.join(save_folder_path, meiju_ename.replace(" ", "_"))
+            os.makedirs(save_folder_path)
 
-        # Download all episodes of the season
-        for episode_inst in season_inst.episode_id_inst_dict.values():
-            self.download_meiju_episode(episode_inst, season_dir_path)
-            '''
-            thread_inst = threading.Thread(name="S"+str(episode_inst.season_id)+"Ep"+str(episode_inst.episode_id),
-                                           target=thread_func,
-                                           args=(self, episode_inst, season_dir_path))
-            thread_list.append(thread_inst)
-            thread_inst.setDaemon(True)
-            thread_inst.start()
-        for thread_inst in thread_list:
-            thread_inst.join()
-            '''
+        # Check whether dir contains Season folder
+        if not save_folder_path.find("Season"+str(season_id)):
+            save_folder_path = os.path.join(save_folder_path, "Season"+str(season_id))
+            os.makedirs(save_folder_path)
+
+        # Get season instance
+        if meiju_ename in collector.meiju_ename_inst_dict:
+            meiju_inst = collector.meiju_ename_inst_dict[meiju_ename]
+            if season_id in meiju_inst.season_id_inst_dict:
+                season_inst = meiju_inst.season_id_inst_dict[season_id]
+
+                # Download all episodes of the season
+                for episode_inst in season_inst.episode_id_inst_dict.values():
+                    self.download_meiju_episode(collector, meiju_ename, season_id,
+                                                episode_inst.episode_id, save_folder_path)
+            else:
+                logger.error("Failed to lookup Season with Season Id %d" % season_id)
+                return
+        else:
+            logger.error("Failed to lookup Meiju with English name %s" % meiju_ename)
+            return
 
         logger.debug("Finished downloading all episods of Season %d" % season_inst.season_id)
 
-    def download_meiju(self, meiju_inst, save_folder_path):
+    def download_meiju(self, collector, meiju_ename, save_folder_path):
 
-        # Check whether season instance is None
-        if meiju_inst is None:
-            logger.error("Meiju Instance is None")
+        # Check whether Collector instance is None
+        if collector is None:
+            logger.error("Collector instance is None")
             return
 
         # Check whether save folder path is invalid
@@ -136,23 +162,22 @@ class Downloader:
             os.makedirs(save_folder_path)
             logger.debug("Create directory %s" % save_folder_path)
 
-        # Check whether need to create Meiju folder
-        meiju_dir_name = meiju_inst.english_name.replace(" ", "_")
-        meiju_dir_path = os.path.join(save_folder_path, meiju_dir_name)
-        if not os.path.exists(meiju_dir_path):
-            os.makedirs(meiju_dir_path)
-            logger.debug("Create directory %s for Meiju" % meiju_dir_path)
+        # Check whether dir contains the Meiju folder
+        if not save_folder_path.find(meiju_ename.replace(" ", "_")):
+            save_folder_path = os.path.join(save_folder_path, meiju_ename.replace(" ", "_"))
+            os.makedirs(save_folder_path)
 
-        # Download all seaons for Meiju
-        for season_inst in meiju_inst.season_id_inst_dict.values():
-            self.download_meiju_season(season_inst, meiju_dir_path)
+        # Get Meiju instance
+        if meiju_ename in collector.meiju_ename_inst_dict:
+            meiju_inst = collector.meiju_ename_inst_dict[meiju_ename]
+
+            # Download all seaons for Meiju
+            for season_inst in meiju_inst.season_id_inst_dict.values():
+                self.download_meiju_season(collector, meiju_ename, season_inst.season_id, save_folder_path)
+        else:
+            logger.error("Failed to lookup Meiju with English name %s" % meiju_ename)
+            return
 
 if __name__ == "__main__":
-    episode_inst = Episode()
-    episode_inst.season_id = 5
-    episode_inst.episode_id = 14
-    episode_inst.url = "http://www.lm-us.com/%e7%a0%b4%e7%94%a2%e5%a7%90%e5%a6%b9-%e7%ac%ac5%e5%ad%a3%e7%ac%ac14%e9%9b%86-2-broke-girls-s5ep14-%e7%be%8e%e5%8a%87%e7%b7%9a%e4%b8%8a%e7%9c%8b"
-
-    downloader = Downloader()
-    downloader.download_meiju_episode(episode_inst, "C:\Github")
+    pass
 
