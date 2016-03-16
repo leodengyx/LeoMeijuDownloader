@@ -4,7 +4,6 @@ LeoMeijuDownloader project is a tool to download the Meiju video for collection.
 
 Table of Contents
 -----------------
-
   * [Requirements](#requirements)
   * [Installation](#installation)
   * [Usage](#usage)
@@ -16,6 +15,7 @@ Table of Contents
 Requirements
 ------------
 LeoMeijuDownloader requires following to run:
+
 - Python Version 2.7
 
 Installation
