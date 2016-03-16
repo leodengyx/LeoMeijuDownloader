@@ -16,10 +16,10 @@ Table of Contents
 Requirements
 ------------
 LeoMeijuDownloader requires following to run:
-Python Version 2.7
+- Python Version 2.7
 
 Installation
-============
+------------
 LeoMuFundPicker can be installed by unzipping the source code in one directory and using this command. ::
 
     python setup.py install
@@ -69,9 +69,9 @@ Use download sub-command to download the all season of Meiju / one season / one 
 
 Motivation
 ----------
-I am so lazy that everything can be automated by machine, i don't want to do it myself.
-I am a big fan of Python. Life is short, use Python.
-I am a big fan of Meiju. They are my memories.
+- I am so lazy that everything can be automated by machine, i don't want to do it myself.
+- I am a big fan of Python. Life is short, use Python.
+- I am a big fan of Meiju. They are my memories.
 
 Contributors
 ------------
