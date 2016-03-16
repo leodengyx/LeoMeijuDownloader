@@ -10,7 +10,7 @@ def cli():
     click.echo("")
 
 @cli.command()
-@click.argument("keywords", nargs=-1)
+@click.option("--keywords", prompt='Please input the keywords of the Meiju you want to search')
 def search(keywords):
 
     keyword_list = keywords.split(" ")
@@ -25,12 +25,10 @@ def search(keywords):
     click.echo("Total %d Meiju is found. Following are the lists:" % len(meiju_ename_list))
     for meiju_ename in meiju_ename_list:
         click.echo("%s" % meiju_ename)
-    if len(meiju_ename_list) != 0:
-        click.echo("Now you can use command 'LeoMeijuDownloader download' to download.")
     return
 
 @cli.command()
-@click.argument("name", nargs=1)
+@click.option("--name", prompt='Please input the name of Meiju which you want to see the details')
 def show(name):
 
     collector = Collector()
@@ -48,12 +46,15 @@ def show(name):
                 output += "Ep%d, " % episode_id
             output += "]"
             click.echo(output)
+    else:
+        click.echo("Failed to find any Meiju named %s" % name)
+    return
 
 @cli.command()
-@click.option("--name", prompt='Please input the name of Meiju:')
-@click.option("--season", prompt='Please input the Season number that you want to download (0 means download all season):')
-@click.option("--episode", prompt='Please input the Episode number that you want to download (0 means download all episode):')
-@click.option("--path", prompt='Please input the destination directory path:')
+@click.option("--name", prompt='Please input the name of Meiju')
+@click.option("--season", prompt='Please input the Season number that you want to download (0 means download all season)')
+@click.option("--episode", prompt='Please input the Episode number that you want to download (0 means download all episode)')
+@click.option("--path", prompt='Please input the destination directory path')
 def download(name, season, episode, path):
 
     collector = Collector()
@@ -73,9 +74,8 @@ def download(name, season, episode, path):
             downloader = Downloader()
             downloader.download_meiju_episode(collector, name, int(season), int(episode), path)
     else:
-        click.echo("Failed to find Meiju whose name is %s" % name)
+        click.echo("Failed to find Meiju named is %s" % name)
     return
 
 if __name__ == "__main__":
-    #cli()
-    download("The Big Bang Theory", "C:\Personal")
+    cli()

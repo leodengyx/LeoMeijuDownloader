@@ -8,6 +8,7 @@ from cookielib import CookieJar
 import re
 import youtube_dl
 import os
+import time
 
 from collector import Collector
 from meiju import Episode
@@ -39,14 +40,16 @@ class Downloader:
             logger.debug("Create directory %s" % save_folder_path)
 
         # Check whether dir contains the Meiju folder
-        if not save_folder_path.find(meiju_ename.replace(" ", "_")):
+        if save_folder_path.find(meiju_ename.replace(" ", "_")) == -1:
             save_folder_path = os.path.join(save_folder_path, meiju_ename.replace(" ", "_"))
-            os.makedirs(save_folder_path)
+            if not os.path.exists(save_folder_path):
+                os.makedirs(save_folder_path)
 
         # Check whether dir contains Season folder
-        if not save_folder_path.find("Season"+str(season_id)):
+        if save_folder_path.find("Season"+str(season_id)) == -1:
             save_folder_path = os.path.join(save_folder_path, "Season"+str(season_id))
-            os.makedirs(save_folder_path)
+            if not os.path.exists(save_folder_path):
+                os.makedirs(save_folder_path)
 
         # Check whether download file already exists
         output_file_name = "Season" + str(season_id) + "Ep" + str(episode_id) + ".mp4"
@@ -117,14 +120,16 @@ class Downloader:
             logger.debug("Create directory %s" % save_folder_path)
 
         # Check whether dir contains the Meiju folder
-        if not save_folder_path.find(meiju_ename.replace(" ", "_")):
+        if save_folder_path.find(meiju_ename.replace(" ", "_")) == -1:
             save_folder_path = os.path.join(save_folder_path, meiju_ename.replace(" ", "_"))
-            os.makedirs(save_folder_path)
+            if not os.path.exists(save_folder_path):
+                os.makedirs(save_folder_path)
 
         # Check whether dir contains Season folder
-        if not save_folder_path.find("Season"+str(season_id)):
+        if save_folder_path.find("Season"+str(season_id)) == -1:
             save_folder_path = os.path.join(save_folder_path, "Season"+str(season_id))
-            os.makedirs(save_folder_path)
+            if not os.path.exists(save_folder_path):
+                os.makedirs(save_folder_path)
 
         # Get season instance
         if meiju_ename in collector.meiju_ename_inst_dict:
@@ -136,6 +141,18 @@ class Downloader:
                 for episode_inst in season_inst.episode_id_inst_dict.values():
                     self.download_meiju_episode(collector, meiju_ename, season_id,
                                                 episode_inst.episode_id, save_folder_path)
+
+                # Check whether there is some .mp4.part file exists, if yes, need to resume
+                is_part_file_exist = True
+                while is_part_file_exist == True:
+                    is_part_file_exist = False
+                    for episode_inst in season_inst.episode_id_inst_dict.values():
+                        part_file_path = os.path.join(save_folder_path, "Season"+str(season_id)+"Ep"+str(episode_inst.episode_id)+".mp4.part")
+                        if os.path.exists(part_file_path):
+                            # Wait 10 seconds and then resume
+                            is_part_file_exist = True
+                            time.sleep(10)
+                            self.download_meiju_episode(collector, meiju_ename, season_id, episode_inst.episode_id, save_folder_path)
             else:
                 logger.error("Failed to lookup Season with Season Id %d" % season_id)
                 return
@@ -163,9 +180,10 @@ class Downloader:
             logger.debug("Create directory %s" % save_folder_path)
 
         # Check whether dir contains the Meiju folder
-        if not save_folder_path.find(meiju_ename.replace(" ", "_")):
+        if save_folder_path.find(meiju_ename.replace(" ", "_")) == -1:
             save_folder_path = os.path.join(save_folder_path, meiju_ename.replace(" ", "_"))
-            os.makedirs(save_folder_path)
+            if not os.path.exists(save_folder_path):
+                os.makedirs(save_folder_path)
 
         # Get Meiju instance
         if meiju_ename in collector.meiju_ename_inst_dict:
