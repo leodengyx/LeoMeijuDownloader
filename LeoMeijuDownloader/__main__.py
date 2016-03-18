@@ -10,6 +10,26 @@ def cli():
     click.echo("")
 
 @cli.command()
+@click.option("--name", prompt='Please input the name of Meiju you want to update info("all" means update all Meiju info)')
+def update(name):
+    if name == "all":
+        collector = Collector()
+        collector.save_all_meiju_update_info()
+        collector.write_all_meiju_info_to_file()
+    else:
+        collector = Collector()
+        if collector.is_meiju_info_file_exist():
+            collector.read_all_meiju_info_from_file()
+            if name in collector.meiju_ename_inst_dict:
+                collector.save_all_meiju_update_info()
+                collector.write_all_meiju_info_to_file()
+            else:
+                click.echo("Failed to lookup Meiju named %s" % name)
+        else:
+            collector.save_all_meiju_info()
+            collector.write_all_meiju_info_to_file()
+
+@cli.command()
 @click.option("--keywords", prompt='Please input the keywords of the Meiju you want to search')
 def search(keywords):
 

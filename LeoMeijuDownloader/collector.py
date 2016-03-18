@@ -5,6 +5,7 @@ import cookielib
 import re
 import json
 import os
+import sys
 
 from meiju import Meiju
 from meiju import Season
@@ -29,6 +30,57 @@ class Collector:
         self.all_meiju_file_name = "All_Meiju.js"
         self.meiju_inst_list = []
         self.meiju_ename_inst_dict = {}
+
+    def save_meiju_update_info(self, mix_name, meiju_url):
+        logger.info("save_meiju_update_info() function entry. mix_name: %s, meiju_url: %s" % (mix_name, meiju_url))
+
+        # Get the updated meiju instance
+        new_meiju_inst = self.save_meiju_info()
+        # Old meiju instance
+        old_meiju_inst = self.meiju_ename_inst_dict[new_meiju_inst.english_name]
+        for (season_id, season_inst) in new_meiju_inst.season_id_inst_dict.items():
+            if not season_id in old_meiju_inst.season_id_inst_dict:
+                sys.stdout.write("Found new Season %d in Meiju %s\n" % (season_id, new_meiju_inst.english_name))
+            else:
+                for (episode_id, episode_inst) in season_inst.episode_id_inst_dict.items():
+                    if not episode_id in old_meiju_inst.season_id_inst_dict[season_id].episode_id_inst_dict:
+                        sys.stdout.write("Found new Episode %d in Season %d in Meiju %s\n" %
+                                         (episode_id, season_id, new_meiju_inst.english_name))
+
+        # Save the new meiju instance
+        self.meiju_ename_inst_dict[new_meiju_inst.english_name] = new_meiju_inst
+
+    def save_all_meiju_update_info(self):
+        logger.info("save_all_meiju_update_info() function entry")
+        if not self.is_meiju_info_file_exist():
+            sys.stdout.write("We detect that you haven't downloaded any Meiju info before, they will be downloaded now.\n")
+            self.save_all_meiju_info()
+            self.write_all_meiju_info_to_file()
+            sys.stdout.write("All Meiju info has been downloaded successfully.\n")
+        else:
+            self.read_all_meiju_info_from_file()
+
+            request = urllib2.Request(self.init_url)
+            request.add_header("User-Agent",
+                               "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36")
+            response = urllib2.urlopen(request)
+            resp_soup = BeautifulSoup(response.read(), 'html.parser')
+            a_tag_list = resp_soup.find_all(href=re.compile("http://www.lm-us.com/\?p="))
+            for a_tag in a_tag_list:
+                mix_name = unicode(a_tag.string)
+                meiju_url = a_tag['href']
+                english_name = unicode(mix_name[:mix_name.rfind(" ")]).lstrip().rstrip()
+
+                # To see if there is new Meiju
+                if not english_name in self.meiju_ename_inst_dict:
+                    sys.stdout.write("Found new Meiju: %s\n" % english_name)
+                    meiju_inst = self.save_meiju_info(mix_name, meiju_url)
+                    self.meiju_inst_list.append(meiju_inst)
+                    self.meiju_ename_inst_dict[meiju_inst.english_name] = meiju_inst
+                # If Meiju already exists, check the update seasons and episodes
+                else:
+                    self.save_meiju_update_info(mix_name, meiju_url)
+
 
     def save_all_meiju_info(self):
         logger.info("save_all_meiju_info() function entry")

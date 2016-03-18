@@ -9,6 +9,7 @@ import re
 import youtube_dl
 import os
 import time
+import shutil
 
 from collector import Collector
 from meiju import Episode
@@ -76,22 +77,51 @@ class Downloader:
                               "Submit": "%E7%99%BB%E5%85%A5"}
                     data = urllib.urlencode(values)
                     response = opener.open(episode_url, data)
-                    soup = BeautifulSoup(response.read().replace("\n",""), "html.parser")
+                    response_str = response.read()
+                    soup = BeautifulSoup(response_str.replace("\n",""), "html.parser")
 
                     # First we lookup videomega first
                     iframe_tag_list = soup.find_all("iframe", src=re.compile("videomega"))
-                    for iframe_tag in iframe_tag_list:
-                        urlstr = iframe_tag["src"][:iframe_tag["src"].find("&")]
+                    if len(iframe_tag_list) != 0:
+                        for iframe_tag in iframe_tag_list:
+                            urlstr = iframe_tag["src"][:iframe_tag["src"].find("&")]
+                            logger.debug("Videomega URL: %s" % urlstr)
+                            logger.debug("Save to file %s" % output_file_path)
+                    # Sometimes when iframe tag is under script tag, BeautifulSoup cannot parse it
+                    else:
+                        pattern = r"src=\"(http:\/\/videomega.tv\/view.php\?ref=.+)\""
+                        regex = re.compile(pattern)
+                        match = regex.search(response_str)
+                        urlstr = match.group(1)[:match.group(1).find("&")]
                         logger.debug("Videomega URL: %s" % urlstr)
                         logger.debug("Save to file %s" % output_file_path)
 
-                        # Use youtube-dl to download the video
-                        argv = ["-o", unicode(output_file_path), urlstr]
-                        try:
-                            youtube_dl.main(argv)
-                        except:
-                            logger.error("Error downloading the video")
+                    # If there is part file, first we backup it
+                    part_file_path = output_file_path + ".part"
+                    if os.path.exists(part_file_path):
+                        shutil.copyfile(part_file_path, part_file_path + ".bak")
 
+                    # Use youtube-dl to download the video
+                    argv = ["-o", unicode(output_file_path), urlstr]
+                    try:
+                        youtube_dl.main(argv)
+
+                        # If download completes, we need to check the file size to decide whether succeed
+                        file_size = os.path.getsize(output_file_path)
+                        # If file size less than 1M, just remove the file and recover the part file
+                        if file_size < 1000000:
+                            os.remove(output_file_path)
+                            if os.path.exists(part_file_path + ".bak"):
+                                shutil.move(part_file_path + ".bak", part_file_path)
+                        # If file size is ok, we just remove the part backup file
+                        else:
+                            if os.path.exists(part_file_path + ".bak"):
+                                os.remove(part_file_path + ".bak")
+                    except:
+                        logger.error("Error downloading the video")
+                        # Remove the backup of part file
+                        if os.path.exists(part_file_path + ".bak"):
+                            os.remove(part_file_path + ".bak")
                 else:
                     logger.error("Failed to lookup Episode instance with Episode Id %d" % episode_id)
                     return
